@@ -20,9 +20,8 @@ Swift is referenced counted and executes a class's deinit deterministically
 
 ## Value Semantics - Shallow Copy - Copy on Write
 
-|  |  | |
 | ----------- | ----------- | ----------- |
-| Value Semantics | Perform deep copy (eagerly or lazily) | all value types and some reference types (ex: final classes) |
+<!--| Value Semantics | Perform deep copy (eagerly or lazily) | all value types and some reference types (ex: classes can have value semantics if all properties are let value types and all methods return value types |-->
 | Shallow Copy | When a value type (struct) contains reference types, the referenced objects won't automatically get copied upon assigning the struct to a new variable. Only the references themselves get copied  | 
 | Copy on write | Behavior that doesn't come for free. Extra steps to perform a deep copy of the class instance whenever the Data struct is mutated | Collections wraps reference types and use COW to efficiently provide value semantics. Ex: Swift array only has value semantics if its elements have value semantics. |
 
