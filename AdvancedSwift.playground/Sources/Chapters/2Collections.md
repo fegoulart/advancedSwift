@@ -1,5 +1,11 @@
 # 2 BUILT-IN COLLECTIONS
 
+## Collections vs Sequences
+
+Collection is a protocol that inherits from Sequence
+Collection is a SequenceType that can be accessed via subscript and defines a startIndex and endIndex. 
+Collection is a step beyond a sequence; individual elements of a collection can be accessed multiple times
+
 ## COW - Copy on right
 
 All collection types in the Swift standard library are implemented using a technique called copy-on-write
@@ -80,8 +86,61 @@ Example: splitting an array into groups of adjacent equal elements
 We don't recommend use map to perform side effects
 Map is for transforming the array and should not hide side-effects.
 
+## Filter
+
+Filter cria um novo array. Por isso, use apenas se o resultado do filter for utilizado.
+Map + filter é algo muito poderoso. 
+
+Prefira sempre contains do que filter se o objetivo for apenas saber se existe.
+
+## Reduce
+
+reduce(into:) é muito mais eficiente pois usa o parametro como inout e não precisa recriar arrays
+ 
+ ## Flatenning Map
+
+ flatMap combines mapping and flattening  (.joined())
+ Flattening transform array of arrays in a single array
+
+## forEach
+
+Unlike map it returns nothing. It is perfect for side effects.
+Cuidado com return dentro de um forEach.
+The return inside the forEach closure doesn't return out of the outer function. It only returns from the closure itself.
+
+Exemplo:
+
+    (1..<10).forEach { number in 
+        print(number)
+        if number > 2 { return } // Não vai funcionar como esperado
+    }
+
+## Array slices
+
+Não cria um novo array. Retorna uma "visão" do array original.
+Cuidado com indices, pois ele nao reseta os indices. Mas usa os indices do array original.
+Recomendado: nao usar 0 mas sim .startIndex (e tb .endIndex)
+Has the same methods Array has: conforms to same protocols (ex: Collection)
 
 
-| Values | Variables | References | Constants |
-| ----------- | ----------- |  ----------- |  ----------- |
-| Immutable and forever. It never changes |  | It's a pointer. As two references 
+## Dictionaries
+
+* Is a Sequence
+* Unique keys
+* O(1) to retrieve
+* not ordered
+* Immutability: let 
+* Mutability: var
+
+Always return an optional
+Doesn't crash. Just returns nil when not found.
+Removing a key: 
+    1) Assign nil
+    2) Pop it (removeValue(forKey: ))
+    3) Update value: (updateValue(_ forKey: )) // returns previous value
+
+Useful methods:
+
+* merge(_:uniquingKeysWith:)
+* init (_ keysAndValues: S, uniquingKeysWith:) // Creates a new dictionary from the key-value pairs in the given sequence, using a combining closure to determine the value for any duplicate keys.
+* mapVlues // keep Dictionary structure intact and only transform its values
