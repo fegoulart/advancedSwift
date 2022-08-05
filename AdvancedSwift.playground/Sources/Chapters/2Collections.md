@@ -121,7 +121,8 @@ Não cria um novo array. Retorna uma "visão" do array original.
 Cuidado com indices, pois ele nao reseta os indices. Mas usa os indices do array original.
 Recomendado: nao usar 0 mas sim .startIndex (e tb .endIndex)
 Has the same methods Array has: conforms to same protocols (ex: Collection)
-
+Warning: en
+EndIndex is the position one greater than the last valid subscript argument.
 
 ## Dictionaries
 
