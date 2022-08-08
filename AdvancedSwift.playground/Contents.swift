@@ -1,6 +1,6 @@
 import Foundation
 
-// MARK: - Arrays
+// MARK: - Collections
 
 // Splits equals elements
 let array: [Int] = [1, 2, 2, 2, 3, 4, 4]
@@ -79,3 +79,24 @@ let settingsAsStrings = settings.mapValues { setting -> String in
 }
 
 print(settingsAsStrings)
+
+// Sets
+
+let iPods: Set = ["iPod touch", "iPod nano", "iPod mini", "iPod shuffle", "iPod classic"]
+let discontinuedIPods: Set = ["iPod mini", "iPod classic", "iPod nano", "iPod shuffle"]
+let currentIPods = iPods.subtracting(discontinuedIPods)
+
+let touchScreen: Set = ["iPhone", "iPad", "iPod touch", "iPod nano"]
+let iPodsWithTouch = iPods.intersection(touchScreen)
+
+var discontinued: Set = ["iBook", "PowerBook", "Power Mac"]
+discontinued.formUnion(discontinuedIPods)
+
+// IndexSet
+
+var indices = IndexSet()
+indices.insert(integersIn: 1..<5)
+indices.insert(integersIn: 11..<15)
+let evenIndices = indices.filter { $0 % 2 == 0 }
+
+print([1, 2, 3, 12, 1, 3, 4, 5, 6, 4, 6].unique())

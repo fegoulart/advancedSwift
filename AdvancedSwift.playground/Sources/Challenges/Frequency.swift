@@ -121,6 +121,6 @@ let mSlice: ArraySlice<Int> = [2, 2, 2, 2, 2, 2, 8, 9][5...7]
 // print(mSlice[mSlice.startIndex])
 
 let result = recursiveSearch(param1: [0, 2, 2, 2, 2, 2, 6, 9][0...7], param2: 1)
-print("Result = \(result)")
+// print("Result = \(result)")
 
 

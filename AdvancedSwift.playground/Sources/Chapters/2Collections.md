@@ -127,7 +127,7 @@ EndIndex is the position one greater than the last valid subscript argument.
 ## Dictionaries
 
 * Is a Sequence
-* Unique keys
+* Unique keys - KEY MUST BE HASHABLE
 * O(1) to retrieve
 * not ordered
 * Immutability: let 
@@ -144,4 +144,108 @@ Useful methods:
 
 * merge(_:uniquingKeysWith:)
 * init (_ keysAndValues: S, uniquingKeysWith:) // Creates a new dictionary from the key-value pairs in the given sequence, using a combining closure to determine the value for any duplicate keys.
-* mapVlues // keep Dictionary structure intact and only transform its values
+* mapValues // keep Dictionary structure intact and only transform its values
+
+### Hashable
+
+All the basic data types in standard library already are hashables (ex: string, integer, floating, bool)
+Arrays, sets and optionals and other become hashable if ther elements are hashable
+Structs and enums - Swift automatically synthesize the Hashable conformance as long they are composed of hashable types
+
+For classes you first need to implement Equatable and then Hashable
+
+### Key and Value Semantics
+
+Take extra care about using key that doesn't have value semantics.
+If you mutate an object after using it as a dictionary key in a way that changes its hash value and/or equality you won't be able to find it again in the dictionary.
+
+### Random seeding
+
+Standard library hash function uses a random seed as one of its inputs
+Ex: the hash value of "abc" will be different on each program execution
+
+Random seeding is a security measure to protect against targeted hash-flooding denial of service attacks
+
+Since Dictionary and Set iterate over their elements in the order they are stored in the hash table, and since this order is determined by the hash values, this means the same code will produce different iteration orders on each launch.
+
+If deterministic hashing is needed (e.g. for tests) you can disable random seeding by setting the environment variable SWIFT_DETERMINISTIC_HASHING=1 (DON'T DO IT IN PRODUCTION)
+
+## Sets
+
+* It is like a dictionary that only store keys and no values
+* Implemented with a hash table
+* Check if an element exists is O(1) - Very efficient membership check
+* Conforms to ExpressibleByArraysLiteral - let naturals: Set = [ 1, 2, 3, 4, 5]
+
+## Set Algebra
+
+SetAlgebra is a protocol
+Set significa conjunto. E as operações com conjuntos da Algebra são disponibilizadas aqui.
+
+*  .subtracting
+*  .intersection
+*  .formUnion - form prefix: mutating method
+
+Standard library types:
+
+* Set
+* OptionSet
+
+Foundation types:
+
+* IndexSet - set of positive integer numbers. More storage efficient than Set<Int>. Is a collection
+* CharacterSet - set of Unicode code points (Unicode scalars). It is NOT a collection. Useful to check if a string contains only characters from a specific character subset (ex: alphanumerics, decimalDigits)
+
+
+## Ranges
+
+Operators:
+
+* ..< half-open ranges (cannot contain the maximum value - ex: 5..<Int.max is an erro)
+* ... closed ranges (cannot represent an empty interval - ex: 5...5 is an error)
+* 0... prefix (from zero)
+* ..<Character("z") postfix (up to Z)
+
+5 different concrete types that represent ranges
+2 most essential (both with Bound generic parameter - Bound must be Comparable):
+
+* Range (..<)
+* ClosedRange (...) - ex: lowercaseLetters
+
+### Countable Ranges
+
+Range conforms to Collection ONLY if:
+
+* Element conforms to Strideable (you can jump from one element to another by adding an offset)
+* Stride steps are integers
+
+In other words: range must be countable in order for it to be iterated over. 
+Ex of countable ranges: integer, pointer
+
+Floating point is not a countable range. If we need to iterate over consecutive floating-point values, you can use the stride(from:to:by:) and stride(from:through:by:) functions to create such sequences.
+
+CountableRange and CountableClosedRange are just aliases
+
+### Partial Ranges
+
+Misses one of their bounds
+
+3 different kinds:
+
+* PartialRangeFrom<> - let fromA: PartialRangeFrom<Character> = Character("a")...
+* PartialRangeThrough - let throughZ: PartialRangeThrough<Character> = ...Character("z")
+* PartialRangeUpTo - let upTo10: PartialRangeUpTo<Int> = ..<10
+
+CountablePartialRangeFrom and PartialRangeFrom are just aliases
+
+### Range Expressions
+
+All range types conform to RangeExpression protocol: 
+
+* contains(_ element:)
+* relative(to collection:) // Computes a fully specified Range for us
+
+Collection protocol takes a RangeExpression rather than the concrete Range type.
+
+If possible, try copying the standard library's approach and make your own functions take a Range Expression rather than a concrete range type.
+It's not always possible because the protocol doesn't give you access to the range's bounds unless you're in the context of a collection, but if it is, you'll give consumers of your APIs much more freedom to pass in any kind of range expression they like.
