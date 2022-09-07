@@ -46,17 +46,16 @@ func recursiveSearch(param1: ArraySlice<Int>, param2: Int) -> Int? {
     print("pointer = \(pointer) - whereTo: \(whereTo)")
     switch (whereTo) {
     case .left:
-        var firstSlice = param1[param1.startIndex...pointer-1]
+        let firstSlice = param1[param1.startIndex...pointer-1]
         print("Param1 startIndex = \(param1.startIndex)")
         return recursiveSearch(param1: firstSlice, param2: param2)
     case .right:
         print("Param1 endIndex = \(param1.endIndex)")
-        var secondSlice = param1[pointer+1...param1.endIndex-1]
+        let secondSlice = param1[pointer+1...param1.endIndex-1]
         return recursiveSearch(param1: secondSlice, param2: param2)
     default:
         return nil
     }
-    return nil
 }
 
 func findIndex(_ slice: ArraySlice<Int>, _ param2: Int, _ pointer: Int) -> WhereToGo? {
