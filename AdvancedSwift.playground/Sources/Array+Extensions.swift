@@ -29,4 +29,19 @@ extension Array {
             }
         }
     }
+
+    // ao inves de crash, agora retorna nil se index do array nao existir
+    public subscript(guarded idx: Int) -> Element? {
+        guard (startIndex..<endIndex).contains(idx) else {
+            return nil
+        }
+        return self[idx]
+    }
+
+    // reduce para conseguir tratar o 1o elemento como optional
+    public func reduce_alt(_ nextPartialResult: (Element, Element) -> Element) -> Element? {
+        return first.map {
+            dropFirst().reduce($0, nextPartialResult)
+        }
+    }
 }

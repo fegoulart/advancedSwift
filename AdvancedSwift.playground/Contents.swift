@@ -160,3 +160,55 @@ if case 0..<10 = j { // if case é equivalente a switch j { case let 5: ...
 }
 // 5 within range
 
+var a: Int? = 5
+a? = 10
+// a == Optional(10)
+
+var b: Int? = nil
+b? = 10
+// b == nil
+
+let i2: Int? = nil
+let j2: Int? = nil
+let k2: Int? = 42
+
+i2 ?? j2 ?? k2 ?? 0 //42
+
+var bodyTemperature: Double? = 37
+
+print("Body temperature: \(bodyTemperature ??? "n/a")")
+
+[1, 2, 3].reduce_alt { firstResult, nextPartialResult in
+    return firstResult + nextPartialResult
+}
+
+// flatMap works as if let
+
+// Implementing if let with flatMap:
+
+//let urlString = "https://www.objc.io/logo.png"
+//let view = URL(string: urlString)
+//    .flatMap { try? Data(contentsOf: $0) }
+//    .flatMap { UIImage(data: $0) }
+//    .map { UIImageView(image: $0)}
+//
+//if let view = view {
+//    PlaygroundPage.current.liveView = view
+//}
+
+// Implementing flatMap with if let:
+
+//extension Optional {
+//    func flatMap<U>(transform: (Wrapped) -> U?) -> U? {
+//        if let value = self, let transformed = transform(value) {
+//            return transformed
+//        }
+//        return nil
+//    }
+//}
+
+let s3 = "foo"
+let i3 = Int(s3) !! "Expecting integer, got \"\(s3)\""
+
+var output: String? = nil
+output?.write("something") !? "Wasn't expected chained nil here"
