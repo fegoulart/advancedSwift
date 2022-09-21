@@ -212,3 +212,19 @@ let i3 = Int(s3) !! "Expecting integer, got \"\(s3)\""
 
 var output: String? = nil
 output?.write("something") !? "Wasn't expected chained nil here"
+
+// MARK: - Functions
+
+func counterFunc() -> (Int) -> String {
+    var counter = 0
+    func innerFunc(i: Int) -> String {
+        counter += i
+        return "Running total: \(counter)"
+    }
+    return innerFunc
+}
+
+let f = counterFunc()
+f(10)
+f(1)
+f(5)
