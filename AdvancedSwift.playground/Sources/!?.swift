@@ -28,6 +28,6 @@ public func !?<T>(wrapped: T?, nilDefault: @autoclosure () -> (value: T, text: S
 
 // Optional chained method call on methods that return Void return Void?
 // Non generic version to detect when optional chain hits a nil
-func !?(wrapped: ()?, failureText: @autoclosure () -> String) {
+public func !?(wrapped: ()?, failureText: @autoclosure () -> String) {
     assert(wrapped != nil, failureText())
 }
