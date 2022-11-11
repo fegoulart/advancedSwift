@@ -581,3 +581,130 @@ with & you could be invoking nice safe inout semantics or casting a poor variabl
 To deal with unsafe pointers we need to be very careful about the lifetime of variables
 
 ## Properties 
+
+2 special kinds of methods:
+
+* computed properties - don't use memory to store values - Value is computed on the fly every time property is accessed. It is really a method with unusual calling and defining conventions
+* subscripts
+
+### Various ways to define properties
+
+struct GPSTrack {
+    private(set) var record: [(CLLocation, Date)] = []
+}
+
+extension GPSTrack {
+    /// Returns all the timestamps for the GPS track.
+    /// - Complexity: O(*n*), where *n* is the number of points recorded
+    var timestamps: [Date] {
+        return record.map { $0.1 }
+    }
+}
+
+As we didn't specify a setter, the timestamps property is read only.
+The result isn't cached. It is computed every time is accessed.
+
+The Swift API Guideline suggests that we document every computed property that is not O(1), because callers might assume it is always O(1).
+
+### Change observers
+
+Handlers that are called every time a property is set (even if value doesn't change):
+
+* willSet
+* didSet
+
+Useful when working with Interface Builder to know when a IBOutlet gets connected (didSet) and then perform additional configuration in the handler.
+Ex:
+
+class SettingsController: UIViewController {
+    @IBOutlet weak var label: UILabel? {
+        didSet {
+            label?.textColor = .black
+        }
+    }
+}
+
+Observers have to be defined at the declaration site of a property. Can't be added retroactively in an extension.
+It is a tool for the designer of the type, not the user.
+
+willSet and didSet handlers are shorthand for defining a pair of properties:
+
+1. One private stored property that provides the storage
+2. One public computed property whose setter performs additional work before and/or after storing the value in the stored property
+
+This is fundamentally different from the key-value observing mechanism in Foundation, which is often used by consumers of an object to observe internal changes, whether or not the class's designer intended this.
+
+You can however override a property in a subclass to add an observer.
+ex:
+
+class Robot {
+    enum State {
+        case stopped, movingForward, turningRight, turningLeft
+    }
+    var state = State.stopped
+}
+
+class ObservableRobot: Robot {
+    override var state: State {
+        willSet {
+            print("Transitioning from \(state) to \(newValue)"
+        }
+    }
+}
+
+var robot = ObservableRobot()
+robot.state = .movingForward
+
+Property observing in Swift is a purely compile-time feature. KVO in other hand uses the Objective-C runtime to dynamically add an observer to a class's setter.
+
+### Lazy stored values
+
+lazy property must always be declared as var because its initial value might not be set until after initialization complets
+
+Swift has a strict rule that let constants must have a value before an instance's initialization complets
+
+lazy is a very specific form of memoization
+
+example: a lazy UIImage property can defer the expensive generation of the image until the property is accessed for the first time
+
+Lazy property is a closure expression that returns the value we want to store
+
+lazy var preview: UIImage = {
+    for point in track.record {
+        // Do some expensive computation
+    }
+    return UIImage(/*...*/)
+}  
+
+It is executed the first time it is accessed (note the parenthesis at the end)
+
+Unlike computed properties, stored properties and stored lazy properties can't be defined in an extension.
+
+struct Point {
+    var x: Double
+    var y: Double
+    private(set) lazy var distanceFromOrigin: Double = (x*x + y*y).squareRoot() ---> É um erro isso ser lazy pq só executa uma vez e nao atualiza mais
+    
+    init(x: Double, y: Double) {
+        self.x = x
+        self.y = y
+    }
+}
+
+var point = Point(x: 3, y: 4)
+point.distanceFromOrigin // 5.0
+point.x += 10
+point.distanceFromOrigin // 5.0 ----> CUIDADO, lazy property não atualiza automaticamente
+
+let immutablePoint = Point(x: 3, y: 4) ---> precisa ser var para usar lazy
+immutable.distanceFromPoint // ERRO - Cannot use mutating getter on immutable value
+
+Accessing a lazy property must potentially mutate its container.
+
+lazy properties is often a bad fit for structs (because users cannot use let)
+
+lazy keyword doesn't perform any thread synchronization. 
+
+IF MULTIPLE THREADS ACCESS A LAZY PROPERTY AT THE SAME TIME BEFORE THE VALUE HAS BEEN COMPUTED, IT'S POSSIBLE THE COMPUTATION COULD BE PERFORMED MORE THAN ONCE, ALONG WITH ANY SIDE-EFFECTS THE COMPUTATION MAY HAVE.
+
+## SUBSCRIPTS
