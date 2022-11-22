@@ -708,3 +708,167 @@ lazy keyword doesn't perform any thread synchronization.
 IF MULTIPLE THREADS ACCESS A LAZY PROPERTY AT THE SAME TIME BEFORE THE VALUE HAS BEEN COMPUTED, IT'S POSSIBLE THE COMPUTATION COULD BE PERFORMED MORE THAN ONCE, ALONG WITH ANY SIDE-EFFECTS THE COMPUTATION MAY HAVE.
 
 ## SUBSCRIPTS
+
+It's like a hybrid of functions and computed properties, with their own special syntax
+
+### It is like functions
+
+* Take arguments as functions
+* We can overload them by providing multiple variants with different types. ex:
+
+let fibs = [0, 1, 1, 2, 3, 5]
+let first = fibs[0] // 0
+fibs[1..<3] // [1,1]
+
+### It is like computed properties
+
+* Can be read-only (using get) or read-write (using get set) like computed properties
+
+### Custom subscripts
+
+Add subscripting to our own type
+Extend existing types with new subscripts
+
+ex: the caller can pass zero or more comma-separated values of the specified type (collection index)
+parameters are available inside the function as an array
+
+extension Collection {
+    subscript(indices indexList:Index...) -> [Element] { // Three dots is a variadic parameter
+        var result: [Element] = []
+        for index in indexList {
+            result.append(self[index])
+        }
+        return result
+    }
+}
+
+Array("abcdefghijklmnopqrstuvwxyz")[indices: 7,4,11,11,14] // ["h", "e", "l", "l", "o"]
+
+### Advanced subscripts
+
+Subscripts aren't limited to a single parameter
+Dictionary is a subscript that takes more than one parameter
+
+Subscripts can also be generic in their parameters or their return type
+
+Consider a heterogeneus dictionary of type [String: Any]
+
+var japan: [String: Any]: [
+    "name": "Japan",
+    "capital": "Tokyo",
+    "population": 126_440_000,
+    "coordinates": [
+        "latitude": 35.0,
+        "longitude": 139.0
+    ]
+]
+
+it isn't easy to mutate a nested value
+
+japan["coordinates"]?["latitude"] = 36.0 // ERROR: Type 'Any' has no subscript members
+
+(japan["coordinate"] as? [String: Double])?["latitude"] = 36.0 // ERROR: Cannot assign to immutable expression
+
+You can mutate a variable through a typecast
+You would have to store the nested dictionary in a local variable first, then mutate that variable
+and then assign the local variable back to the top-level key
+
+Dictionary extension with generic subscript that takes the desired type as a second parameter and attempst the cast inside the subscript implementation
+
+extension Dictionary {
+    subscript<Result>(key: Key, as type: Result.Type) -> Result? {
+        get {
+            return self[key] as? Result
+        }
+        set {
+            // Delete existing value if caller passed nil
+            guard let value = newValue else {
+                self[key] = nil
+                return
+            }
+            // ignore if types don't match
+            guard let value2 = value as? Value else {
+                return
+            }
+            self[key] = value2
+        }   
+    }
+}
+
+japan["coordinates", as: [String:Double].self]?["latitude"] = 36.0
+japan["coordinates"] // Optional(["latitude": 36.0, "longitude": 139.0])
+
+it's nice that generic subscripts make this possible, but you'll notice the final syntax is quite ugly.
+
+Swift is not well suited for working on heterogeneous collections like this dictionary.
+
+In most cases, it's better to define a custom struct type and conform it to Codable for converting value to and from transfer formats
+
+## Key Paths
+
+Key path is an uninvoked reference to a property
+Analog to an unapplied method reference
+
+Previously it wasn't possible to refer to a type's property (String.count, String.uppercased)
+
+Key path expression start with a backslash: \String.count
+
+The backslash is necessary to distinguish a key path from a type property of the same name that may exist
+
+Type inference works with key path: /.count
+
+Key paths and function types references are so closely related but Swift has different syntaxes for them.
+
+Key path describes a path through a value hierarchy starting at root value.
+
+struct Address {
+    var street: String
+    var city: String
+    var zipCode: Int
+}
+
+struct Person {
+    let name: String // immutable so keyPath is not Writable
+    var address: Address
+}
+
+let streeKeyPath = \Person.address.street // Swift.WritableKeyPath<Person, Swift.String>
+let nameKeyPath = \Person.name // Swift.KeyPath<Person, Swift.String>
+
+Key paths can be composed of any combination of stored and computed properties, along with optional chaining operators.
+
+let simpsonResidence = Address(street: "1094 Evergreen Terrace", city: "Springfield", zipCode: 97475)
+var lisa = Person(name: "Lisa Simpson", address: simpsonResidence)
+lisa[keyPath: nameKeyPath] // Lisa Simpson
+lisa[keyPath: streetKeyPath] = "742 Evergreen Terrace"
+
+lisa[keyPath: name] = "Bart" // Error - Immutable
+
+Key paths can descript subscripts too (not only properties):
+
+var bart = Person(name: "Bart Simpson", address: simpsonResidence)
+let people = [lisa, bart]
+people[keyPath: \.[1].name] // Bart Simpson
+
+### Key Paths modeled with functions
+
+Key path that map a base type Root to a property of type Value is very similar to a function of type (Root) -> Value or for writable key paths, a pair of functions for both getting and setting a value.
+
+Key paths are values - that is the major benefit they have over functions.
+
+You can test them for equality and use them as dictionary keys (they conform to hashable) and you can be sure that a key path is stateless, unlike fucntions, which might capture mutable state. 
+
+Key paths are composable by appending one key path to another. Notice that the types must match: if you start with a key path from A to B, the key path you append must have a root type of B, and the resulting key path will then map from A to the appended key path's value type, say C:
+
+// KeyPath<Person, String> + KeyPath<String, Int> = KeyPath<Person, Int>
+let nameCountKeyPath = nameKeyPath.appending(path: \.count) 
+// Swift.KeyPath<Person, Swift.Int>
+
+Rewriting sort descriptoes from earlier in this chapter to use key paths instead of functions:
+
+typealias SortDescriptor<Root> = (Root, Root) -> Bool
+
+func sortDescriptor<Root, Value>(key: @escaping (Root) -> Value) -> SortDescriptor<Root> where Value: Comparable {
+    return { key($0) < key($1) }
+}
+
