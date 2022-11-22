@@ -872,3 +872,128 @@ func sortDescriptor<Root, Value>(key: @escaping (Root) -> Value) -> SortDescript
     return { key($0) < key($1) }
 }
 
+let streetSD: SortDescriptor<Person> = sortDescriptor { $0.address.street }
+
+Variant to sortDescriptor from keyPath:
+
+func sortDescriptor<Root, Value>(key: keyPath<Root, Value>) -> SortDescriptor<Root> where Value: Comparable {
+    return { $0[keyPath: key] < $1[keyPath: key] }
+}
+
+let streetSDKeyPath: SortDescriptor<Person> = sortDescriptor(key: \.address.street)
+
+sortDescriptor constructor that takes a key path doesn't give the same flexibility functions do.
+
+Key path relies on the Value being Comparable. Using just key paths, we can't easily sort by a different predicate (ex: perform a localized case-insensitive comparison)
+
+## Writable Key Path
+
+Special key path.
+Used to read and write a value.
+
+It's equivalent to a pair of functions: 
+
+one for getting the property ((Root) -> Value)
+another for setting the property ((inout Root, Value) -> Void)
+
+### Writable key pair vs getter and setter
+
+let streeKeyPath = \Person.address.street
+
+let getStreet: (Person) -> String = { person in 
+    return person.address.street
+}
+
+let setStreet: (inout Person, String) -> () = { person, newValue in 
+    person.address.street = newValue
+}
+
+//Setter usage
+lisa[keyPath: streetKeyPath] = "1234 Evergreen Terrace"
+setStreet(&lisa, "1234 Evergreen Terrace")
+
+Writable key paths are specially useful for data binding, where you want to bind 2 properties to each other: when property one changes, property two should automatically get updated and vice versa.
+For example: bind a model.name property to textField.text
+Users of the API need to specify how to read and write model.name and textField.text and key paths capture just that.
+
+Way to observe changes to the properties. Let's use key-value observing mechanism in Cocoa for this (works only with classes and only on Apple platform).
+NSObject method: observe(_:options:changeHandler:) observes a key path (passed in a strongly typed Swift key path) and calls the change handler whenever the property has changed. 
+Don't forget to mark any property as @objc dynamic otherwise KVO won't work. 
+
+### One way data binding
+
+Whenever the observed property of self changes, we change the other object as well.
+It is possible to make this code generic over the specific properties involved (caller specifies 2 objects and the 2 key paths)
+
+extension NSObjectProtocol where Self: NSObject { // NSObjectProtocol allows the use of Self (in comparison with NSObject)
+    func observe<A, Other>(
+        _ keyPath: KeyPath<Self, A>, 
+        writeTo other: Other,
+        _ otherKeyPath: ReferenceWritableKeyPath<Other, A>  // ReferenceWritableKeyPath is a WritableKeyPath but it also allows us to write reference variables that are declared using let
+    ) -> NSKeyValueObservation where A: Equatable, Other: NSObjectProtocol { // NSKeyValueObservation retun value is a token the caller can use to control lifetime of the observation: observation stops either when this object gets deallocated or when the caller calls its invalidate method
+        return observe(keyPath, options: .new) { _, change in 
+            guard let newValue = change.newValue,
+                other[keyPath: otherKeyPath] != newValue else { 
+                    return // prevent endless feedback loop
+            }
+            other[keyPath: otherKeyPath] = newValue
+        }
+    }
+}
+
+
+### Two way data binding
+
+Given the previous method: it is just call observe on both objects and return both observation tokens
+
+extension NSObjectProtocol where Self: NSObject {
+    func bind<A, Other>(
+        _ keyPath: ReferenceWritableKeyPath<Self, A>, 
+        to other: Other, 
+        _ otherKeyPath: ReferenceWritableKeyPath<Other, A>
+    ) -> (NSKeyValueObservation, NSKeyValueObservation) where A: Equatable, Other: NSObject {
+        let one = observe(keyPath, writeTo: other, otherKeyPath)
+        let two = other.observe(otherKeyPath, writeTo: self, keyPath)
+        return (one, two)
+    }
+}
+
+Usage:
+
+final class Person: NSObject {
+    @objc dynamic var name: String = ""
+}
+
+class TextField: NSObject {
+    @objc dynamic var text: String = ""
+}
+
+let person = Person()
+let textField = TextField()
+let observation = person.bind(\.name, to: textField, \.text)
+person.name = "John"
+textField.text // John
+textField.text = "Sarah"
+person.name // Sarah
+
+Writable key paths remind lenses Functional Programming concept.
+From a WritableKeypath<Root, Value> we can create a Lens<Root, Value>
+
+Lenses are useful in pure functional programming languages like Haskell or PureScript where there is no mutability.
+
+## Key Path Hierarchy
+
+5 types of key path (increasing precision / functionality)
+This hierarchy is implemented as a class hierarchy (as Swifts generics system lacks some features, it is not implemented via protocols)
+
+* AnyKeyPath - similar to function (Any) -> Any?
+* PartialKeyPath - similar to (Source) -> Any?
+* KeyPath<Source, Target> - similar to (Source) -> Target
+* WritableKeyPath<Source, Target> - similar to pair of functions of type (Source) -> Target and (inout Source, Target) -> ()
+* ReferenceWritableKeyPath<Source, Target> - similar to pair of functions of type (Source) -> Target and (Source, Target) -> () - works only when Source is reference type 
+
+Key paths are different than functions: they conform to Hashable (probably will conform to Codable some day)
+
+## Autoclosures
+
+
