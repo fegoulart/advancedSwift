@@ -996,4 +996,70 @@ Key paths are different than functions: they conform to Hashable (probably will 
 
 ## Autoclosures
 
+### Short Cirtuiting
 
+Avalia só as condições da esquerda e caso seja false, pára e nao continua a avaliar.
+ex:
+
+let evens = [2, 4, 6]
+if !evens.isEmpty && evens[0] > 10 {  // evens[0] nao crasha aqui nunca
+    // Perform some work
+}
+
+De qquer forma, seria melhor escrever assim:
+
+if let first = evens.first, first > 10 {
+
+}
+
+Como poderiamos fazer nosso proprio short circuiting ?
+
+Uma forma, mas é feia é requer que o lado direito seja uma função:
+
+func and(_ l: Bool, _ r: () -> Bool) -> Bool {
+    guard l else { return false }
+    return r()
+}
+
+uso:
+
+if and(!evens.isEmpty, { evens[0] > 10 }) {
+    // Perform some work
+}
+
+### Forma mais elegante de criar nosso proprio short circuiting: autoclosure
+
+func and(_ l: Bool, _ r: @autoclosure () -> Bool) -> Bool {
+    guard l else { return false }
+    return r()
+}
+
+if and(!evens.isEmpty, evens[0] > 10) {
+    // Perform some work
+}
+
+assert and fatalError uses autoclosures
+By deferring the evaluation of assertion conditions from the call sites to the body of the assert function, these potentially expensive operations can be stripped completely in optimized builds where they're not needed.
+
+### Autoclosure to logging functions
+
+Evaluate log message only when condition is true
+
+func log(
+    ifFalse condition: Bool,
+    message: @autoclosure() -> (String),
+    file: String = #file,
+    function: String = #function,
+    line: Int = #line 
+) {
+    guard !condition else { return }
+    print("Assertion failed: \(message()), \(file): \(function) (line \(line))")
+}
+
+Caution: overusing autoclosures can make your code hard to understand. The context and function name should make it clear that evaluation is being deferred.
+
+### DEBUGGING IDENTIFIERS:
+
+* #file
+* #function
+* line
