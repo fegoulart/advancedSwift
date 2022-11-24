@@ -1063,3 +1063,56 @@ Caution: overusing autoclosures can make your code hard to understand. The conte
 * #file
 * #function
 * line
+
+## The @escaping annotation
+
+Some closures require explicit use of self but not others
+
+Requires self: ex. network completion handler
+Does not require self: closures passed to map or filter
+
+Difference:
+
+It is whether the closure is being stored for later use or if it's only used synchronously within the scope of the function (as with map and filter)
+
+If a closure is stored somewhere (ex: in a property) to be called later, it is said to be escaping.
+Closures that never leave a function's local scope are non-escaping.
+
+With escaping closures, the compiler forces us to be explicit about using self. Because capturing self strongly is one of the most frequent causes of reference cycles.
+
+A non-escaping closure can't create a permanent reference cycle because it's automatically destroyed then the function it's defined in returns.
+
+Safe by default: closure arguments are non-escaping by default
+
+### Functions used by parameters but are wrapped in some other type (ex: optional or tuple)
+
+They are automatically escaping. Because the closure is no longer an immediate parameter in this case.
+
+So, we can't write a function that takes a function argument where it is both optional and non-escaping !
+In many situations we can avoid the optional by providing a default value.
+If it is not possible a workaround is to use overloading to write 2 variants of the function.
+
+Ex:
+
+func transform(_ input: int, with f: ((Int) -> Int)?) -> Int {
+    print("Using optional overlaod")
+    guard let f = f else { return input }
+    return f(input)
+}
+
+func transform(_ input: Int, with f: (Int) -> Int) -> Int {
+    print("Using non-optional overload")
+    return f(input)
+}
+
+transform(10, with: nil)
+transform(10) { $0 * $0 }
+
+### withoutActuallyEscaping
+
+Quando o compilador acha que é escaping, mas nao é
+
+extension Array {
+
+}
+
