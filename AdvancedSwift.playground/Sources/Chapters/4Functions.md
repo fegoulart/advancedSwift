@@ -1108,11 +1108,111 @@ func transform(_ input: Int, with f: (Int) -> Int) -> Int {
 transform(10, with: nil)
 transform(10) { $0 * $0 }
 
-### withoutActuallyEscaping
+### withoutActuallyEscaping ---> can result in undefined behavior
 
-Quando o compilador acha que é escaping, mas nao é
+Quando o compilador nao consegue dize se e ou não escaping, mas vc sabe que não é escaping.
+
+Custom allSatisfy method on Array that uses a lazy view of the array.
+We then apply a filter to the lazy view and check whether any element got through the filter.
+
+First attempt with compile errror: 
 
 extension Array {
-
+    func allSatisfy2(_ predicate: (Element) -> Bool) -> Bool {
+        // Error: Closure use of non escaping parameter predicate
+        // may allow it to escape
+        return self.lazy.filter({ !predicate($0) }).isEmpty
+    }
 }
 
+lazy view stores subsequent transformations in an internal property in order to apply them later. 
+This requires any closure that's passed in to be escaping.
+
+But we know that in our case the closure won't escape because the lifetime of the lazy collection view is bound to the lifetime of the function
+
+withoutActuallyEscaping allows to pass a non-escaping closure to a function that expects an escaping one.
+
+extension Array {
+    func allSatisfy2(_ predicate: (Element) -> Bool) -> Bool {
+        return withoutActuallyEscaping(predicate) { escapablePredicate in
+         self.lazy.filter({ !escapablePredicate($0) }).isEmpty
+    }
+} 
+let areAllEven = [1, 2, 3, 4].allSatisfy2 { $0 % 2 == 0 } // false
+let areAllOneDigit = [1, 2, 3, 4].allSatisfy2 { $0 < 10 } // true
+
+### lazy collections
+
+https://www.avanderlee.com/swift/lazy-collections-arrays/
+
+postpones calculations until they are actually needed
+prevent doing unneeded work if elements are never being asked in the end
+
+var numbers: [Int] = [1, 2, 3, 6, 9]
+let modifiedNumbers = numbers
+    .filter { number in
+        print("Even number filter")
+        return number % 2 == 0
+    }.map { number -> Int in 
+        print("Doubling the number")
+    } 
+print(modifiedNumbers)
+/*
+Even number filter
+Even number filter
+Even number filter
+Even number filter
+Even number filter
+Doubling the number
+Doubling the number
+[4, 12]
+*/
+
+Using lazy:
+
+let modifiedLazyNumbers = numbers.lazy
+    .filter { number in
+        print("Even number filter")
+        return number % 2 == 0
+    }.map { number -> Int in 
+        print("Doubling the number")
+    }
+print(modifiedLazyNumbers)
+// Prints:
+// LazyMapSequence>, Int>(base: Swift.LazyFilterSequence>(base: [1, 2, 3, 6, 9], _predicate: (Function)), _transform: (Function))
+
+Só vai executar quando pedir um elemento:
+
+print(modifiedLazyNumbers.first!)
+/*
+Prints:
+
+Lazy Even number filter
+Lazy Even number filter
+Lazy Doubling the number
+4
+*/
+
+Outro uso do lazy collection: permitir "paralelizar" operacoes
+
+let usernames = ["Antoine", "Maaike", "Jaap", "Amber", "Lady", "Angie"]
+usernames
+    .filter { username in 
+        // some condition
+    }.forEach { username in 
+    
+    }
+Nao lazy vai primeiro rodar todo o filter para só depois iniciar o forEach
+se fizer lazy, o que sair do filter ja parte pro forEach
+
+usernames.lazy
+    .filter { username in 
+        // some condition
+    }.forEach { username in 
+    
+    }
+    
+    
+Lazy Collections don't cache
+
+Prefer to use Swift Apis over lazy (ex: first(where:))
