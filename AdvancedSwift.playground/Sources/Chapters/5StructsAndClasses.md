@@ -224,4 +224,145 @@ window = nil // window: 1, view: 1 ---> reference cycle
 
 ### Weak references
 
+To break the reference cycle, we need to make one of the references weak or unowned.
+Assigning an object to a weak variable doesn't change its reference count.
+Weak references in Swift are always zeroing: the variable will automatically be set to nil once the referred object gets deallocated. 
+This is why weak references must always be optionals.
+
+Fix previously example:
+
+// Second version
+class Window {
+    weak var rootView: View?
+    deinit {
+        print("Deinit Window")
+    }
+}
+
+class View {
+    var window: Window
+    init(window: Window) {
+        self.window = window
+    }
+    deinit {
+        print("Deinit view")
+    }
+}
+
+var window: Window? = Window()
+var view: View? = View(window: window)
+window?.rootView = view
+window = nil
+view = nil
+/*
+Deinit View
+Deinit Window
+*/
+
+weak references are very useful when working with delegates, as is common in Cocoa.
+The delegating object (ex: table view) needs a reference to its delegate, but it shouldn't own the delegate because that would likely create a reference cycle. Therefore, delegate references are usually weak, and another object (e.g. a view controller) is responsible for making sure the delegate statys around for as long as needed.
+
+### Unowned Reference 
+
+non strong reference that is not optional
+The Swift runtime keeps a second reference count in the object to keep track of unowned references.
+When all strong references are gone, the object will release all of its resources.
+However, the memory of the object itself will still be there until all unowned references are gone too.
+The memory is marked as invalid (sometimes called as zombie memory) and any time we try to access an unowned reference, a runtime error will occur.
+The safeguard can be circumvented by using unowned(unsafe). If we access an invalid reference that's marked as unowned(unsafe) we get undefined behavior.
+
+### Closures and Reference Cycles
+
+Functions (and closure) are reference types too.
+If a closure capture a variable holding a reference type, the closure will maintain a strong reference to it.
+This is the other primary way of introducing reference cycles to our code.
+
+Usual pattern:
+
+object A references object B
+but object B stores a closure that references object A 
+
+example:
+
+class Window {
+    weak var rootView: View?
+    var onRotate: (() -> ())? = nil
+} 
+
+introducing a reference cycle:
+
+var window: Window? = Window()
+var view: View? = View(window: window!)
+window?.onRotate = {
+    print("We now also need to update the view: \(view)")  // view is captured by this closure
+}
+
+View references window
+window references the callback 
+the callback references the view
+
+#### 3 places where we could break this reference cycle, but just one possible 
+
+As 3 possiveis formas de quebrar esse reference cycle tem a ver com as 3 setas abaixo:
+
+view aponta pra window
+windows aponta pra onRotate
+onRotate aponta pra view
+
+1. Make the view's reference to the window weak. Unfortunately the window could be deallocated immediately, because there are no other references keeping it alive
+2. Make onRotate property weak. Swift doesn't allow marking function properties as weak
+3. make sure the closure doesn't strongly reference the view by using a capture list that captures view weakly.
+This is the only correct option in this example
+
+Solucao
+
+window?.onRotate = { [weak view] in 
+    print("We now also need to update the view: \(view)")
+}
+
+Capture lists do more than just marking variables as weak or unowned. 
+For example, if we wanted to have a weak variable that refers to the window, we could initialize it in the capture list, or we could even define completely unrelated variables like so:
+This is almost the same as definig the variable just above the closure, except that with capture lists, the scope of the variable is just the scope of the closure; it's not available outside of the closure
+
+window?.onRotate = { [weak view, weak myWindow = window, x = 5*5] in
+    print("We now also need to update the view: 
+    \(view)")
+    print("Because the window \(myWindow) changed")
+}
+
+### Refactoring the book code to test it
+
+class Window {
+    weak var rootView: View?
+    var onRotate: (() -> ())? = nil
+    deinit {
+        print("Window deinit")
+    }
+}
+
+class View {
+    var window: Window // weak var window: Window?
+    init(window: Window) {
+        self.window = window
+    }
+    deinit {
+        print("View deinit")
+    }
+}
+
+class Main {
+    func runIt() {
+        var view: View? = View(window: Window())
+        view?.window.onRotate = { // [weak view] in
+            print("We now also need to update the view: \(view)")
+        }
+        view?.window.onRotate?()
+    }
+}
+
+var main = Main()
+main.runIt()
+
+### Choosing between Unowned and Weak References
+
 
