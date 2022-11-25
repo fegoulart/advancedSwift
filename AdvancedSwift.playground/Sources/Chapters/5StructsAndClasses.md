@@ -75,3 +75,153 @@ Function parameter is immutable within the function (like a let variable)
 
 Classes are more powerful tool, but their capabilities come at a cost.
 On the other hand, structs are much limiting, but it can be beneficial.
+
+## Mutation
+
+class ScoreClass {
+    var home: Int
+    var guest: Int
+    init(home: Int, guest: Int) {
+        self.home = home
+        self.guest = guest
+    }
+}
+
+struct ScoreStruct {
+    var home: Int
+    var guest: Int
+}
+
+### Both var instances
+
+var scoreClass = ScoreClass(home: 0, guest: 0)
+var scoreStruct = ScoreStruct(home: 0, guest: 0)
+
+scoreClass.home += 1
+scoreStruct.guest += 1
+
+Changing a property within a struct is semantically equivalent to assigning a whole new struct instance to the variable
+
+scoreStruct.guest += 1 is equivalent to 
+scoreStruct = ScoreStruct(home: scoreStruct.home, guest: scoreStruct.guest + 1)
+
+### Both let instances
+
+let scoreClass = ScoreClass(home: 0, guest: 0)
+let scoreStruct = ScoreStruct(home: 0, guest: 0)
+
+scoreClass.home += 1
+scoreStruct.guest += 1 // Error: Left side of mutating operator isn't mutable
+// scoreStruct is a let constant
+
+### properties with let but instances with var
+
+class ScoreClass {
+    let home: Int
+    let guest: Int
+    init(home: Int, guest: Int) {
+        self.home = home
+        self.guest = guest
+    }
+}
+
+struct ScoreStruct {
+    let home: Int
+    let guest: Int
+}
+
+var scoreClass = ScoreClass(home: 0, guest: 0)
+var scoreStruct = ScoreStruct(home: 0, guest: 0)
+
+scoreClass.home += 1 // Error: Left side of mutating operator isn't mutable
+// home is a let constant 
+scoreStruct.guest += 1 // Error: Left side of mutating operator isn't mutable
+// guest is a let constant
+
+### default suggestion
+
+Struct:
+
+use var properties to struct as default:
+this allows the mutability of struct instances to be controlled by using var or let on variable level, giving more flexibility
+it doesn't introduce potentially global mutable state
+
+let should be used sparingly and intentionally for properties that really shouldn't be mutated after initialization
+
+
+### Mutating Methods
+
+mutating keyword
+
+extension ScoreStruct {
+    mutating func scoreGuest() {
+        self.guest += 1  // ---> On mutating methods, self is a var
+    }
+}
+
+var scoreStruct2 = ScoreStruct(home: 0, guest: 0)
+scoreStruct2.scoreGuest()
+scoreStruct2.guest // 1
+
+Implicitily mutating: property and subscript setters. If you don't want it, you can use "nonmutating set"
+
+### inout parameter
+
+// new free function:
+func scoreGuest(_ score: inout ScoreStruct) {
+    score.guest += 1
+}
+
+var scoreStruct3 = ScoreStruct(home: 0, guest: 0)
+scoreGuest(&scoreStruct3)
+scoreStruct3.guest // 1
+
+## Lifecycle
+
+Structs:
+* can't have multiple owners
+* lifetime is tied to the lifetime of the variable containing the struct
+* When variable goes out of the scope, its memory is freed and the struct disappears
+
+Classes:
+* can be referenced by multiple owners (requires a more sophisticated memory management)
+* Swift uses ARC (Automatic Reference Counting) to keep track of the number of references to a particular instance
+  When reference count goes to zero - class deinit is called and memory is freed
+* Classes can be used to model shared entities that perform cleanup work when they are eventually freed: ex: file handles have to close their underlying file descriptor or view controllers can require all kinds of cleanup work as intance unregistering observers
+
+### Reference Cycles
+
+A reference cycle is when 2 or more objects reference each other strongly in a way that prevents them form ever being deallocated.
+This creates memory leaks and prevents the execution of potential cleanup tasks.
+
+It is impossible to create reference cycles between structs. 
+WE CANNOT MODEL CYCLIC DATA STRUCTURES USING STRUCTS.
+
+### Many forms of reference cycle
+
+Reference cycles can have many forms from 2 objects referencing each other strongly to complex cycles consisting of many objects and closures closing over objexts.
+
+Simple example:
+
+// First version
+class Window {
+    var rootView: View?
+} 
+
+class View {
+    var window: Window
+    init(window: Window) {
+        self.window = window
+    }
+}
+
+var window: Window? = Window() // window: 1
+var view: View? = View(window: window) // window: 2, view: 1 - view holds a strong reference to window
+window?.rootView = view // window: 2, view: 2
+
+view = nil // window: 2, view: 1
+window = nil // window: 1, view: 1 ---> reference cycle
+
+### Weak references
+
+
