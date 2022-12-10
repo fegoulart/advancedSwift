@@ -365,4 +365,42 @@ main.runIt()
 
 ### Choosing between Unowned and Weak References
 
+Should we prefer unowned or weak references in own APIs ?
 
+This question boils down to the lifetimes of the objects involved.
+If the objects have independent lifetimes a weak reference is the only safe choice (when we cannot make assumptions about which object will outlive the other).
+
+Unowned reference is often more convenient when we can guarantee that the non-strongly referenced object has the same lifetime as its counterpart or will always outlive it.
+This is because it doesn't have to be optional and the variable can be declared with let (weak must always be var).
+
+Same-lifetime situations are very common (especially when the 2 objects have a parent-child relationship).
+When the parent controls the child's lifetime with a strong reference and you can guarantee that no other objects know about the child, the child's back reference to its parent can always be unowned.
+
+unowned has less overhead so accessing it will be slightly faster. (just for performance-critical code paths)
+
+## Deciding between Structs and Classes
+
+When designing a type, we have to think about whether ownership of a particular instance of this type has to be shared among different parts of our program, or if multiple intances can be used interchangeably as long as they represent the same value.
+To share ownership of a particular instance, we have to use a class. Otherwise, we can use a struct.
+
+Ex: URL is a struct. Quando definimos uma URL para uma variavel, ou quando enviamos como parametro de uma funcao, o valor é copiado.
+Mas isso nao é um problema pq podemos considerar que as duas copias sao intercambiaveis. Elas representam a mesma URL.
+O mesmo ocorre com outras structs como integers, Booleans and strings.
+
+Por outro lado, vamos pegar uma UIView. Nao podemos dizer que duas instancias de UIView sao intercambiaveis.
+Mesmo que suas propriedades sejam as mesmas, elas ainda representam objetos diferentes na tela em lugares diferentes da view hierarchy.
+Como UIView é uma classe podemos passar uma referencia para uma instancia em particular em diferentes pontos do programa.
+Um view em particular é referenciada pela sua superview, mas também é a superview de suas views filhas.
+Alem disto podemos tambem adicionar outras referencias para uma view (ex: view controller). A mesma instancia pode ser manipulada por todas suas referencias e essas mudancas sao automaticamente refletidas para todas as referencias.
+
+Podemos tambem ter classes com comportamento de imutabilidade (value semantics). Apesar de perdermos algumas otimizacoes em tempo de compilacao e teremos tambem o custo de operacoes de ARC.
+
+Porem fica dificil usar uma struct para se obter o comportamento de reference que tem uma classe. 
+Structs offer simplicity: no references, no lifecycle, no subtypes.
+No worries about reference cycles, side effects, race conditions through shared references and inheritance rules and etc
+
+Structs promise better performance, especially for small values.
+If Int were a class, an array of Ints would take up a lot more memory to store the references (pointers) to the actual instances.
+Looping over an reference array would be much slower. Because code would have to follow the additional level of indirection for each element and thus potentially be unable to make effective use of CPU caches, especially if the Int instances were allocated at wildly different locations in Memory
+
+## Classes with Value Semantics 
