@@ -473,3 +473,8 @@ Array(lowercase.map(Character.init))
 let fernando = "Fernando"
 let fernandoArrayChars = Array(fernando.map(Character.init))
 type(of: fernandoArrayChars[2]) // Character
+
+
+// MARK: - Custom copy-on-write
+
+FernandoCopyOnWrite.main()

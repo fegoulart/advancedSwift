@@ -404,3 +404,159 @@ If Int were a class, an array of Ints would take up a lot more memory to store t
 Looping over an reference array would be much slower. Because code would have to follow the additional level of indirection for each element and thus potentially be unable to make effective use of CPU caches, especially if the Int instances were allocated at wildly different locations in Memory
 
 ## Classes with Value Semantics 
+
+We can write immutable classes that behave more like a value type and we can write structs that don't really behave like a value type - at least at first sight.
+
+Class with value semantics:
+
+* declare all properties with let, making them immutable
+* final class - disallow subclassing
+
+ex:
+
+final class ScoreClass {
+    let home: Int
+    let guest: Int
+    init(home: Int, guest: Int) {
+        self.home = home
+        self.guest = guest
+    }
+}
+
+let score1 = ScoreClass(home: 0, guest: 0)
+let score2 = score1
+
+score1 and score2 variables still contain references to the same underlying ScoreClass instance.
+But for all practical intents and purposes, we can use score1 and score2 as if they contained independent values, because the underlying instance is completely immutable anyway.
+
+Ex: NSArray in Foundation
+NSArray itself doesn't expose any mutating APIs, so its instances can essentially be used as if they were values.
+The reality is somewhat more complicated, since NSArray has a mutable subclass NSMutableArray and we can't make assumptions that we're really dealing with an NSArray insance if we haven't created it ourselves.
+
+## Structs with Reference Semantics
+
+Let's extend ScoreStruct type to include a computed property: pretty. It provides a nicely formatted string for the current score
+
+struct ScoreStruct {
+    var home: Int
+    var guest: Int
+    let scoreFormatter: NumberFormatter // it is a class inherited from Formatter
+    
+    init(home: Int, guest: Int) {
+        self.home = home
+        self.guest = guest
+        scoreFormatter = NumberFormatter()
+        scoreFormatter.minimumIntegerDigits = 2
+    }
+    
+    var pretty: String {
+        let h = scoreFormatter.string(from: home as NSNumber)
+        let g = scoreFormatter.string(from: guest as NSNumber)
+        return "\(h) - \(g)"
+    }
+}
+
+let score1 = ScoreStruct(home: 2, guest: 1)
+score1.pretty // "02 - 01"
+
+let score2 = score1
+score2.scoreFormatter.minimumIntegerDigits = 3
+
+score1.pretty // 002 - 001
+ATENCAO: Although we made the change on score2, the output of score1.pretty has changed as well
+
+The reason for it is that NumberFormatter is a class.
+
+Technically ScoreStruct still has a value semantics: when you assign an instance to another variable or pass it as a function parameter, a copy of the entire value is made.
+However, it depends what we consider to be the value. (Se considerarmos que o ponteiro, a referencia, é um valor que foi preservado, ScoreStruct continua com value semantics. Mas se considerarmos o conteudo de pretty nao.)
+
+O que podemos fazer entao nesses casos:
+
+1) Mudar o tipo para classe. O usuario entao nao esperará value semantics.
+2) Tornar o number formatter um detalhe de implementacao privado que nao pode ser alterado. Essa nao é uma solucao perfeita pois podemos acidentalmente expor outros metodos publicos do tipo que consegue alterar o number formatter internamente.
+
+ATENCAO:
+
+We recommend being very careful about storing references within structs, since doing so will often result in unexpected behavior.
+However, there are cases where storing a reference is intentional and exactly what you need, mostly as an implementation detail for performance optimizations.
+
+## Copy-On-Write Optimizations
+
+Values types requerem muitas operacoes de copia. O proprio compilador tenta otimizar evitando copies quando percebe que é seguro fazer assim.
+Uma tecnica que o dev pode fazer é implementar o tipo usando a tecnica de copy-on-write.
+
+Copy-on-write é importante principalmente em tipos que guardam muitos dados, como colecoes (Array, Dictionary, Set and String). 
+Colecoes em Swift sao implementadas com copy-on-write.
+
+O que é copy on write ? 
+Copy on write significa compartilhar os valores entre as diversas variaveis e atrasar o maximo possivel a operacao da copia.
+Ou seja, a copia em si ocorre apenas quando alguma instancia altera algum valor.
+
+Exemplo:
+
+var x = [1, 2, 3]
+var y = x 
+
+Por enquanto x e y estao compartilhando os mesmos dados. Nao foi ainda feita a criacao de um nova estrutura de dados em memoria pra y.
+Internally,the array values in x and y contain a reference to the same memory buffer.
+This buffer is where the actual elements of the array are stored.
+However, the moment we mutate x or y, the array detects that it's sharing it's buffer with one or more other variables and makes a copy of the buffer before applying the mutation.
+The potentially expensive copy of the elements only happens when it has to.
+
+x.append(5)
+y.removeLast()
+
+x // [1, 2, 3, 5]
+y // [1, 2]
+
+Copy-on-write behavior is not something we get for free for our own types. 
+We have to implement it ourselves, just as the standard library implements it for its collection types.
+
+Implementing copying-on-write for a custom struct is only necessary in rare circustances.
+Even if we define a struct that can contain a lot of data, we'll often use the built-in collection types to represent this data internally, and as a result we benefit from their copy-on-write optimizations.
+
+### Copy-On-Write Tradeoffs
+
+Copy-on-write structs rely on storing a reference internally, and the internal reference count has to be incremented for every copy of a struct that gets created.
+Ou seja, quando implementamos copy-on-write a gente volta a ter o "problema" de ter um reference counting para otimizar a performance das escritas.
+
+Incrementing and decrementing a reference count is a relatively slow operation compared to, say, copying a few bytes to another location on the stack because such an operation must be thread-safe and therefore incurs locking overhead. 
+
+Since all the variable-size types from the standard library (arrays, dictionaries, sets and strings) rely on copy-on-write internally, all structs containing properties of these types also incur reference counting costs on each copy. One exception: small strings up to 15 utf-8 code units in size.
+
+Ex: HTTP request 
+Modeled with a struct vs modeled with a class
+Class / reference type is less data to be copied than all fields of a HTTP request struct and only one reference count has to be updated.
+
+### Implementing copy-on-write
+
+How to use copy-on-write technique to combine the best of both worlds in a particular case: value semantics and the performance of using a class
+
+See Johannes Weiss talk at dotSwift 2019 (www.youtube.com/watch?v=iLDldae64xE)
+
+Let's start with an extremely simplified version of an HTTP request struct: 
+
+struct HTTPRequest {
+    var path: String
+    var headers: [String: String]
+    // other fields omitted...
+}  
+
+See CopyOnWrite.swift file
+
+#### isKnownUniquelyReferenced function
+
+Used to find out if a reference has only one owner
+Returns true if no one else has a strong reference to the object
+Uses an inout argument (that's the only way in Swift to refer to a variable in the context of a function argument. Se nao fosse inout, mas sim um argumento padrao, automaticamente a variavel seria copiada e ja nao teria so um "owner")
+Não funciona para classes Objective-C  
+
+It is thread-safe but you have to make sure the variable that is being passed in is not being accessed from another thread like all inout arguments in Swift.
+isKnownUniquelyReferenced doesn't protect you against race conditions
+
+example of a non safe code:
+
+var numbers = [1, 2, 3]
+queue1.async { numbers.append(4) }
+queue2.async { numbers.append(5) } 
+
