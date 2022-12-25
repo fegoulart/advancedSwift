@@ -478,3 +478,13 @@ type(of: fernandoArrayChars[2]) // Character
 // MARK: - Custom copy-on-write
 
 FernandoCopyOnWrite.main()
+
+// MARK: - MemoryLayout
+
+class CopaDoMundo {
+    var computador: String?
+
+    init() {}
+}
+
+print(MemoryLayout<CopaDoMundo>.size) // 8
